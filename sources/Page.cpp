@@ -3,7 +3,7 @@
 #include <string>
 #include <vector> 
 
-#define P_COL 100
+constexpr int PP_COL = 100;
 std::string EMPT = "______________________________________________________________________________________________________________";
 // #define EMPTY_ROW "______________________________________________________________________________________________________________"
 
@@ -24,7 +24,6 @@ namespace ariel
             clear = true;
         }
         // ~Page(){ /* dest */content.clear(); }
-
         void Page::show()
         { 
             /* two cases of show: 
@@ -32,19 +31,19 @@ namespace ariel
                     2. page isnt clear -> shall print whole rows to make a page + one more empty line in the end of the page
             */
             std::cout << "page: " << page_idx << std::endl; 
-            if (clear)
-            {
-                std::cout << "0: " << EMPT << std::endl;
-            }
-            else 
-            {
+            // if (clear)
+            // {
+            //     std::cout << "0: " << EMPT << std::endl;
+            // }
+            // else 
+            // {
                 unsigned int i=0;
                 for (; i < content.size() ; i++)
                 {
                     std::cout << i << " " << content[i] << std::endl;
                 }
                 std::cout << i << " " << EMPT << std::endl; 
-            }
+            // }
         }
 // };
 }

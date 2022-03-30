@@ -15,7 +15,7 @@ namespace ariel{
             Notebook() = default;
             ~Notebook() = default;
             
-            void write(int page, int row, int col, ariel::Direction dir, std::string content);
+            void write(int page, int row, int col, ariel::Direction dir, const std::string & content);
             std::string read(int page, int row, int col, ariel::Direction dir, int len);
             void erase(int page, int row, int col, ariel::Direction dir, int len);
             void show(int page);

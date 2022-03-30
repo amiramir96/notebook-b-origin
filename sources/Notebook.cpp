@@ -5,31 +5,31 @@
 #include <vector> 
 
 
-#define P_COL 100
+constexpr int P_COL = 100;
 std::string EMPTY_ROW = "______________________________________________________________________________________________________________";
- 
+constexpr int MIN_ASCII = 32;
+constexpr int MAX_ASCII = 125 ;
 // #define EMPTY_ROW "______________________________________________________________________________________________________________"
 namespace ariel
 {
 
-void verify_input(int page_idx, int row, int col, int len)
+int verify_input(int page_idx, int row, int col, int len)
 {
-    if (page_idx < 0 || row < 0 || col < 0 or len < 0)
-    {
-        throw std::invalid_argument("input is negative\n");
-    }
-    if (col >= 100)
-    {
-        throw std::invalid_argument("write len is out of bound\n");
-    }
 
+    if (page_idx < 0 || row < 0 || col < 0 || len < 0){ return 0; }
+    
+    if (col >= P_COL)
+    {
+        return 0;
+    }
+    return 1;
 }
 
 bool validate_asci(std::string content)
 {
     for (unsigned int i=0; i < content.length(); i++)
     {
-        if (31 > content[i] || 127 < content[i])
+        if (MIN_ASCII > content[i] || MAX_ASCII < content[i])
         {
             throw std::invalid_argument("wont be able to write this shit..\n");
         }
@@ -39,38 +39,50 @@ bool validate_asci(std::string content)
 
 bool validate_border(int col, int len)
 { /* validate check for notebook before read/write/erase while HORIZOTAL command*/
-    return col + len < P_COL;
+    return col + len - 1 < P_COL;
 }
 
-bool validate_erase(unsigned int page_idx , unsigned int row, unsigned int col, ariel::Direction dir, unsigned int len, Page page)
+bool validate_erase(unsigned int page_idx , unsigned int row, unsigned int col, ariel::Direction dir, unsigned int len, Page & page)
 { /* check if we gonna write at field which has been erased */
-    printf("im here \n");
     if (dir == ariel::Direction::Horizontal)
     {
-        printf("hori\n");
         for (unsigned int i=col; i < col+len; i++)
         {
             if (page.content[row].at(i) == '~'){ return false; }
         }
     }
     else { // dir is vertical 
-        printf("just verti\n");
-        printf("verti %d, %d, %d,         %lu, |||%s||| \n",row, col, len, page.content.size(), page.content[row].c_str());
         for (unsigned int i=row; i < row+len; i++)
         {
-            if (page.content[col].at(i) == '~'){ return false; }
+            if (page.content[i].at(col) == '~'){ return false; }
         }
     }
     return true; // not gonna write on erase
 }
 
-void order_page(Page page, int row)
+bool validate_content(unsigned int page_idx , unsigned int row, unsigned int col, ariel::Direction dir, unsigned int len, Page & page)
+{ /* check if we gonna write at field which has been writen */
+    if (dir == ariel::Direction::Horizontal)
+    {
+        for (unsigned int i=col; i < col+len; i++)
+        {
+            if (page.content[row].at(i) != '_'){ return false; }
+        }
+    }
+    else { // dir is vertical 
+        for (unsigned int i=row; i < row+len; i++)
+        {
+            if (page.content[i].at(col) != '_'){ return false; }
+        }
+    }
+    return true; // not gonna write on writen
+}
+
+void order_page(Page & page, int row)
 { /* will ensure that the page hold all relevant lines before read/write/erase */
-    printf("order page start\n");
     for (int i=0; i <= row; i++)
     {
-        printf("order_page iterate row %d, i %d\n", row, i);
-        if (page.content.size() <= row){page.content.push_back(EMPTY_ROW); printf("??? %lu, %s\n",page.content.size(), page.content[0].c_str()); }
+        if (page.content.size() <= row){page.content.push_back(EMPTY_ROW); }
     }
 }
 
@@ -90,34 +102,32 @@ void order_page(Page page, int row)
         //     nbook.clear();
         // }
     
-        void Notebook::write(int page_idx, int row, int col, ariel::Direction dir, std::string content)
+        void Notebook::write(int page_idx, int row, int col, ariel::Direction dir, const std::string & content)
         { /* write specific string to page at idx 'page_idx', can write horizontal or vertical 
                 this func throws invalid exception when col+content.size > 100 (horizontal), outside border of page
                 also throws runtime_erro when user asked to write at 'erased' char place */
-            // return;
-            verify_input(page_idx, row, col, content.length());
+
+            if(verify_input(page_idx, row, col, content.length()) == 0){ throw std::invalid_argument("fk it\n");}
 
             if (!validate_border(col, content.length()) && dir == ariel::Direction::Horizontal){ throw std::invalid_argument("writing horizontal will exit the border of 100 chars in a line \n"); }
             // border is relevant only for horizontal
             
             validate_asci(content);
-            printf("passed first validation\n ");
+
             if (nbook.count(page_idx) == 0)
             { // doesnt have this page yet, shall create an empty page
                 Page temp = Page((unsigned int)page_idx);
                 nbook[page_idx] = temp;
             }
-            printf("added new empty page\n");
             // if rows is too below in compare to the curr page str, shall add empty rows as needed
 
 
-            if (dir == ariel::Direction::Vertical){ order_page(nbook[page_idx], (unsigned int)row+content.length()); }
+            if (dir == ariel::Direction::Vertical){ order_page(nbook[page_idx], row+(int)content.length()); }
             else { order_page(nbook[page_idx], row); } // horizontal dir
-            printf("ordered\n");
-            for (unsigned int j=0; j < nbook[page_idx].content.size(); j++){printf("%s\n",nbook[page_idx].content[j].c_str());}
-            
+
+            if (!validate_content((unsigned int)page_idx, (unsigned int)row, (unsigned int)col, dir, content.length(), nbook[page_idx])) { throw std::runtime_error("gonna write on writen symbol while writing\n"); }
+
             if (!validate_erase((unsigned int)page_idx, (unsigned int)row, (unsigned int)col, dir, content.length(), nbook[page_idx])) { throw std::runtime_error("gonna write on '~' symbol while writing\n"); }
-            printf("passed val_erase\n");
             
 
             for (unsigned int i=0; i < content.length(); i++)
@@ -125,31 +135,34 @@ void order_page(Page page, int row)
             {
                 if (dir == ariel::Direction::Horizontal)
                 {
-                    nbook[page_idx].content[(unsigned int)row][(unsigned int)col+i] = content.at(i);
+                    
+                    // .replace((unsigned int)col+i, 1, std::string(1, content.at(i)))
+                    nbook[page_idx].content[(unsigned int)row][(unsigned int)col+i] = content.at(i);;
                 }
                 else // vertical
                 {
-                    nbook[page_idx].content[(unsigned int)row+i][(unsigned int)col] = content.at(i);
+                    // .replace((unsigned int)col, 1, std::string(1, content.at(i)))
+                    nbook[page_idx].content[(unsigned int)row+i][(unsigned int)col] = content.at(i);;
                 }
             }
-            printf("falled at end? :O\n");
+            // nbook[page_idx].show();
         }
         
 
         std::string Notebook::read(int page_idx, int row, int col, ariel::Direction dir, int len)
         { /* this func read from specific page (page_idx) in specific dir a len bytes of str from the page 
                 this func throws invalid exception when col+content.size > 100 (horizontal), outside border of page */
-            return "";
-            verify_input(page_idx, row, col, len);
+            if(verify_input(page_idx, row, col, len) == 0){throw std::invalid_argument("fk it\n");}
+
+            if (!validate_border(col, len) && dir == ariel::Direction::Horizontal){ throw std::invalid_argument("reading horizontal will exit the border of 100 chars in a line \n"); }
+            // border is relevant only for horizontal
+
             std::string output;
-            if (!nbook.count(page_idx))
+            if (nbook.count(page_idx) == 0)
             { // doesnt have this page yet, shall create an empty page
                 Page temp = Page((unsigned int)page_idx);
                 nbook[page_idx] = temp;
             }
-
-            if (!validate_border(col, len) && dir == ariel::Direction::Horizontal){ throw std::invalid_argument("reading horizontal will exit the border of 100 chars in a line \n"); }
-            // border is relevant only for horizontal
 
             // if rows is too below in compare to the curr page str, shall add empty rows as needed
             if (dir == ariel::Direction::Vertical){ order_page(nbook[page_idx], row+len); }
@@ -175,13 +188,12 @@ void order_page(Page page, int row)
         void Notebook::erase(int page_idx, int row, int col, ariel::Direction dir, int len)
         { /* change from location in the page chars in dir and len inputed to '~' which symbolize "erasing" 
                 this func throws invalid exception when col+content.size > 100 (horizontal), outside border of page */
-            return;
-            verify_input(page_idx, row, col, len);
+            if(verify_input(page_idx, row, col, len) == 0){throw std::invalid_argument("fk it\n");}
 
             if (!validate_border(col, len) && dir == ariel::Direction::Horizontal){ throw std::invalid_argument("erasing horizontal will exit the border of 100 chars in a line \n"); }
             // border is relevant only for horizontal
 
-            if (!nbook.count(page_idx))
+            if (nbook.count(page_idx) == 0)
             { // doesnt have this page yet, shall create an empty page
                 Page temp = Page((unsigned int)page_idx);
                 nbook[page_idx] = temp;
@@ -203,6 +215,7 @@ void order_page(Page page, int row)
                     nbook[page_idx].content[(unsigned int)row+i][(unsigned int)col] = '~';
                 }
             }
+            // nbook[page_idx].show();
         }
         
         void Notebook::show(int page_idx)
@@ -214,8 +227,9 @@ void order_page(Page page, int row)
                 2: content (string) etc.. 
                 <last_page_row+1>: EMPTY_ROW 
             */
+            if (page_idx < 0 ){ throw std::invalid_argument("negatve page num.. \n"); }
 
-            if (nbook.count(page_idx))
+            if (nbook.count(page_idx) == 0)
             { // print the content of a specific page
                 nbook[page_idx].show();
             }
